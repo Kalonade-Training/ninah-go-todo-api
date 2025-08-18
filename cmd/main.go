@@ -19,7 +19,8 @@ func main() {
 		log.Println(".env file not found, proceeding with system environment variables")
 	}
 
-	gormDB := db.InitDB()
+	log.Printf("DATABASE_URL = %q", os.Getenv("DATABASE_URL"))
+	gormDB := db.MustOpen()
 
 	r := gin.Default()
 
