@@ -2,14 +2,18 @@ package entities
 
 import (
 	"time"
+
+	"github.com/ninahf618/go-todo-api/domain/valueobjects"
 )
 
 type Todo struct {
-	ID          string    `gorm:"type:char(36);primaryKey"`
-	Title       string    `gorm:"not null"`
-	Description string    `json:"description"`
-	Completed   bool      `gorm:"default:false"`
-	UserID      string    `gorm:"type:char(36);not null"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string
+	UserID      string
+	Title       valueobjects.Name
+	Body        valueobjects.Body
+	DueDate     *time.Time
+	Completed   bool
+	CompletedAt *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }

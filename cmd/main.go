@@ -11,53 +11,71 @@ import (
 	"github.com/ninahf618/go-todo-api/infrastructure/db"
 	"github.com/ninahf618/go-todo-api/interfaces/handler"
 	"github.com/ninahf618/go-todo-api/middleware"
+	"github.com/ninahf618/go-todo-api/pkg/auth"
+	"github.com/ninahf618/go-todo-api/pkg/security"
 	"github.com/ninahf618/go-todo-api/usecases"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println(".env file not found, proceeding with system environment variables")
+	_ = godotenv.Load()
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8091"
+	}
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Fatal("JWT_SECRET is not set (put it in .env or container env)")
 	}
 
 	gormDB := db.InitDB()
-
-	r := gin.Default()
+	if gormDB == nil {
+		log.Fatal("DB init failed: gormDB is nil")
+	}
 
 	userRepo := db.NewUserRepository(gormDB)
 	todoRepo := db.NewTodoRepository(gormDB)
 
-	userUC := usecases.NewUserUsecase(userRepo)
+	tokenSvc := auth.NewJWTService(os.Getenv("JWT_SECRET"))
+	pwdSvc := security.NewBcryptService()
+
+	userUC := usecases.NewUserUsecase(userRepo, tokenSvc, pwdSvc)
 	todoUC := usecases.NewTodoUsecase(todoRepo)
 
-	userHandler := handler.NewUserHandler(userUC)
-	todoHandler := handler.NewTodoHandler(todoUC)
+	userH := handler.NewUserHandler(userUC)
+	todoH := handler.NewTodoHandler(todoUC)
 
-	r.POST("/register", userHandler.Register)
-	r.POST("/login", userHandler.Login)
+	r := gin.Default()
+
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Go TodoAPI is running"})
 	})
 
-	auth := r.Group("/todos")
-	auth.Use(middleware.JWTMiddleware())
+	r.POST("/register", userH.Register)
+	r.POST("/login", userH.Login)
+
+	authDbg := r.Group("/auth")
+	authDbg.Use(middleware.JWTMiddleware())
+	authDbg.GET("/whoami", func(c *gin.Context) {
+		if v, ok := c.Get("user_id"); ok {
+			if s, ok := v.(string); ok {
+				c.JSON(http.StatusOK, gin.H{"user_id": s})
+				return
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"user_id": nil})
+	})
+
+	authGroup := r.Group("/todos")
+	authGroup.Use(middleware.JWTMiddleware()) // no args
 	{
-		auth.GET("", todoHandler.List)
-		auth.POST("", todoHandler.Create)
-		auth.PUT("/:id", todoHandler.Update)
-		auth.DELETE("/:id", todoHandler.Delete)
-	}
-
-	if gormDB == nil {
-		log.Fatal("global DB is nil")
-	}
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+		authGroup.GET("", todoH.List)
+		authGroup.GET("/:id", todoH.Detail)
+		authGroup.POST("", todoH.Create)
+		authGroup.PATCH("/:id", todoH.Update)
+		authGroup.DELETE("/:id", todoH.Delete)
+		authGroup.POST("/:id/duplicate", todoH.Duplicate)
 	}
 
 	log.Printf("Server is running on port %s", port)
-
 	log.Fatal(r.Run(":" + port))
-
 }
