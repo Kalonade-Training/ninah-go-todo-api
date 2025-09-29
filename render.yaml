@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: go-todo-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 8091
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_USER
+        value: root
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: DB_NAME
+        value: todo_go_db
+
+databases:
+  - name: todo-mysql
+    databaseName: todo_go_db
+    user: root
