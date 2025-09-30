@@ -2,8 +2,6 @@ module github.com/ninahf618/go-todo-api
 
 go 1.23.0
 
-toolchain go1.24.5
-
 require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.10.1
