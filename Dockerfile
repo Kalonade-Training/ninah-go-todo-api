@@ -1,15 +1,17 @@
-FROM golang:1.24.5
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
-RUN go mod download
+# Install dependencies
+RUN apk add --no-cache git gcc musl-dev
 
+# Copy everything
 COPY . .
 
+# Download and build
+RUN go mod download
 RUN go build -o main ./cmd/main.go
 
+EXPOSE 8091
+
 CMD ["./main"]
-
-
-

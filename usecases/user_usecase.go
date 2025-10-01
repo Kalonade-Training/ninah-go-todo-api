@@ -7,34 +7,40 @@ import (
 	"github.com/google/uuid"
 	"github.com/ninahf618/go-todo-api/domain/entities"
 	"github.com/ninahf618/go-todo-api/domain/repositories"
-	"github.com/ninahf618/go-todo-api/infrastructure/auth"
-	"golang.org/x/crypto/bcrypt"
-)
-
-var (
-	ErrUserAlreadyExists  = errors.New("user already exists")
-	ErrInvalidCredentials = errors.New("invalid email or password")
+	"github.com/ninahf618/go-todo-api/pkg/auth"
+	"github.com/ninahf618/go-todo-api/pkg/security"
 )
 
 type UserUsecase struct {
-	repo repositories.UserRepository
+	userRepo    repositories.UserRepository
+	tokenSvc    auth.TokenService
+	passwordSvc security.PasswordService
 }
 
-func NewUserUsecase(repo repositories.UserRepository) *UserUsecase {
-	return &UserUsecase{repo: repo}
+func NewUserUsecase(r repositories.UserRepository, t auth.TokenService, p security.PasswordService) *UserUsecase {
+	return &UserUsecase{
+		userRepo:    r,
+		tokenSvc:    t,
+		passwordSvc: p,
+	}
 }
 
 func (u *UserUsecase) Register(username, email, password string) (*entities.User, error) {
-	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
-	existingUser, err := u.repo.FindByEmail(normalizedEmail)
+	email = strings.TrimSpace(strings.ToLower(email))
+	username = strings.TrimSpace(username)
+	if username == "" || email == "" || password == "" {
+		return nil, errors.New("missing required fields")
+	}
+
+	existing, err := u.userRepo.FindByEmail(email)
 	if err != nil {
 		return nil, err
 	}
-	if existingUser != nil {
-		return nil, ErrUserAlreadyExists
+	if existing != nil {
+		return nil, errors.New("user already exists")
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := u.passwordSvc.Hash(password)
 	if err != nil {
 		return nil, err
 	}
@@ -42,35 +48,28 @@ func (u *UserUsecase) Register(username, email, password string) (*entities.User
 	user := &entities.User{
 		ID:       uuid.NewString(),
 		Username: username,
-		Email:    normalizedEmail,
-		Password: string(hashed),
+		Email:    email,
+		Password: hash,
 	}
-
-	if err := u.repo.Create(user); err != nil {
+	if err := u.userRepo.Create(user); err != nil {
 		return nil, err
 	}
-
 	return user, nil
 }
 
 func (u *UserUsecase) Login(email, password string) (string, error) {
-	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
-
-	user, err := u.repo.FindByEmail(normalizedEmail)
-
-	if err != nil || user == nil {
-		return "", ErrInvalidCredentials
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" || password == "" {
+		return "", errors.New("missing credentials")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
-		return "", ErrInvalidCredentials
-	}
-
-	token, err := auth.GenerateJWT(user.ID, user.Email)
+	user, err := u.userRepo.FindByEmail(email)
 	if err != nil {
 		return "", err
 	}
+	if user == nil || !u.passwordSvc.Verify(user.Password, password) {
+		return "", errors.New("invalid email or password")
+	}
 
-	return token, nil
+	return u.tokenSvc.Generate(user.ID)
 }

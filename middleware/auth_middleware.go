@@ -46,17 +46,15 @@ func JWTMiddleware() gin.HandlerFunc {
 				}
 				return []byte(secret), nil
 			},
-
 			jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 			jwt.WithLeeway(2*time.Minute),
 		)
-
 		if err != nil || !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
-		c.Set("userID", claims.UserID)
+		c.Set("user_id", claims.UserID)
 		c.Next()
 	}
 }
