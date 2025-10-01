@@ -4,7 +4,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
@@ -23,14 +25,8 @@ func main() {
 	if port == "" {
 		port = "8091"
 	}
-	if os.Getenv("JWT_SECRET") == "" {
-		log.Fatal("JWT_SECRET is not set (put it in .env or container env)")
-	}
 
 	gormDB := db.InitDB()
-	if gormDB == nil {
-		log.Fatal("DB init failed: gormDB is nil")
-	}
 
 	userRepo := db.NewUserRepository(gormDB)
 	todoRepo := db.NewTodoRepository(gormDB)
@@ -46,27 +42,32 @@ func main() {
 
 	r := gin.Default()
 
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://localhost:5174",
+			"http://localhost:5175",
+			"https://ninah-todo-frontend-a4sfilkps-ninahs-projects-5aeacde4.vercel.app/",
+			"https://*.vercel.app",
+		},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	r.RedirectTrailingSlash = false
+	r.RedirectFixedPath = false
+
+	r.POST("/register", userH.Register)
+	r.POST("/login", userH.Login)
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Go TodoAPI is running"})
 	})
 
-	r.POST("/register", userH.Register)
-	r.POST("/login", userH.Login)
-
-	authDbg := r.Group("/auth")
-	authDbg.Use(middleware.JWTMiddleware())
-	authDbg.GET("/whoami", func(c *gin.Context) {
-		if v, ok := c.Get("user_id"); ok {
-			if s, ok := v.(string); ok {
-				c.JSON(http.StatusOK, gin.H{"user_id": s})
-				return
-			}
-		}
-		c.JSON(http.StatusOK, gin.H{"user_id": nil})
-	})
-
 	authGroup := r.Group("/todos")
-	authGroup.Use(middleware.JWTMiddleware()) // no args
+	authGroup.Use(middleware.JWTMiddleware())
 	{
 		authGroup.GET("", todoH.List)
 		authGroup.GET("/:id", todoH.Detail)
