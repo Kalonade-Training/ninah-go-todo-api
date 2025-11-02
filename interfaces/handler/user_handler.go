@@ -43,6 +43,10 @@ func (h *UserHandler) Register(c *gin.Context) {
 
 	user, err := h.usecase.Register(body.Username, body.Email, body.Password)
 	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			c.JSON(http.StatusConflict, gin.H{"error": "This email is already registered"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
