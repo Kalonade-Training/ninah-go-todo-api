@@ -17,6 +17,7 @@ func NewUserHandler(usecase *usecases.UserUsecase) *UserHandler {
 	return &UserHandler{usecase}
 }
 
+// src/interfaces/handler/user_handler.go
 func (h *UserHandler) Register(c *gin.Context) {
 	var body struct {
 		Username string `json:"username" binding:"required"`
