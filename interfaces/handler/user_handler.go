@@ -17,7 +17,6 @@ func NewUserHandler(usecase *usecases.UserUsecase) *UserHandler {
 	return &UserHandler{usecase}
 }
 
-// src/interfaces/handler/user_handler.go
 func (h *UserHandler) Register(c *gin.Context) {
 	var body struct {
 		Username string `json:"username" binding:"required"`
@@ -45,7 +44,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 	user, err := h.usecase.Register(body.Username, body.Email, body.Password)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
-			c.JSON(http.StatusConflict, gin.H{"error": "This email is already registered"})
+			c.JSON(http.StatusConflict, gin.H{"error": "Email already exists, please login"})
 			return
 		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

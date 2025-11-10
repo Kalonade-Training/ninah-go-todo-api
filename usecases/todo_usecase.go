@@ -115,10 +115,12 @@ func (u *todoUsecase) Duplicate(userID, id string) (*entities.Todo, error) {
 	if src == nil {
 		return nil, errors.New("todo not found")
 	}
+
 	newTitle := src.Title.String() + "のコピー"
 	if len([]rune(newTitle)) > 50 {
-		return nil, errors.New("Duplicated title exceeds maximum length. Please rename the original todo before duplicating.")
+		return nil, errors.New("Todo title too long, please shorten the original todo")
 	}
+
 	newID := uuid.NewString()
 	return u.repo.Duplicate(id, userID, newID, newTitle)
 }
